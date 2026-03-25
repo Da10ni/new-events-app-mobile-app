@@ -318,13 +318,24 @@ export default function AddListingScreen() {
 
   const uploadImages = async (images: LocalImage[]) => {
     const imageFormData = new FormData() as any;
-    images.forEach((img, index) => {
-      imageFormData.append('images', {
-        uri: img.uri,
-        name: `image_${index}.jpg`,
-        type: 'image/jpeg',
-      } as any);
-    });
+
+    for (let index = 0; index < images.length; index++) {
+      const img = images[index];
+
+      if (Platform.OS === 'web') {
+        // On web, fetch the blob from the URI and append as File
+        const response = await fetch(img.uri);
+        const blob = await response.blob();
+        imageFormData.append('images', blob, `image_${index}.jpg`);
+      } else {
+        imageFormData.append('images', {
+          uri: img.uri,
+          name: `image_${index}.jpg`,
+          type: 'image/jpeg',
+        } as any);
+      }
+    }
+
     const res = await uploadApi.uploadImages(imageFormData);
     const uploaded = (res.data as any)?.data?.images || [];
     return uploaded.map((img: any, index: number) => ({

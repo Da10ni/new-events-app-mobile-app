@@ -30,6 +30,7 @@ export interface Booking {
     currency: string;
   };
   status: string;
+  paymentStatus?: 'pending' | 'processing' | 'succeeded' | 'failed' | 'refunded';
   clientMessage?: string;
   vendorResponse?: string;
   specialRequests?: string;

@@ -36,7 +36,7 @@ const authSlice = createSlice({
       state.accessToken = action.payload.accessToken;
       state.refreshToken = action.payload.refreshToken;
       state.isAuthenticated = true;
-      state.role = 'client'; // Always default to client view
+      state.role = action.payload.user.role || 'client';
       state.error = null;
     },
     setUser: (state, action: PayloadAction<User>) => {

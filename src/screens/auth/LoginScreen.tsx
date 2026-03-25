@@ -102,113 +102,116 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-1 px-6 pt-20">
-            {/* Header */}
-            <Animated.View entering={FadeInDown.duration(500)} className="mb-8">
-              <Text variant="h3" weight="bold" className="mb-2" color={COLORS.primary[600]}>
-                Welcome back
-              </Text>
-              <Text variant="body" color={COLORS.neutral[400]}>
-                Log in to continue to EventsApp
-              </Text>
-            </Animated.View>
-
-            {/* Email Input */}
-            <Animated.View entering={FadeInDown.delay(100).duration(500)}>
-              <TextInput
-                label="Email"
-                leftIcon="mail-outline"
-                placeholder="your@email.com"
-                value={email}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
-                }}
-                error={errors.email}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-              />
-            </Animated.View>
-
-            {/* Password Input */}
-            <Animated.View entering={FadeInDown.delay(200).duration(500)}>
-              <TextInput
-                label="Password"
-                leftIcon="lock-closed-outline"
-                placeholder="Enter your password"
-                value={password}
-                onChangeText={(text) => {
-                  setPassword(text);
-                  if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
-                }}
-                error={errors.password}
-                secureTextEntry={!showPassword}
-                autoComplete="password"
-                rightIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                onRightIconPress={() => setShowPassword(!showPassword)}
-                containerClassName="mb-1"
-              />
-            </Animated.View>
-
-            {/* Forgot Password */}
-            <Animated.View entering={FadeIn.delay(300).duration(400)}>
-              <TouchableOpacity
-                className="self-end mb-6"
-                onPress={() => navigation.navigate('ForgotPassword')}
-              >
-                <Text variant="label" weight="medium" color={COLORS.primary[500]}>
-                  Forgot Password?
+          <View className="flex-1 px-6" style={{ justifyContent: 'space-between' }}>
+            {/* Top: Form Section */}
+            <View style={{ paddingTop: 56 }}>
+              {/* Header */}
+              <Animated.View entering={FadeInDown.duration(500)} style={{ marginBottom: 24 }}>
+                <Text variant="h3" weight="bold" style={{ marginBottom: 4 }} color={COLORS.primary[600]}>
+                  Welcome back
                 </Text>
-              </TouchableOpacity>
-            </Animated.View>
-
-            {/* Login Button */}
-            <Animated.View entering={FadeInDown.delay(350).duration(500)}>
-              <Button
-                title="Log In"
-                variant="primary"
-                size="lg"
-                fullWidth
-                loading={isSubmitting}
-                disabled={isSubmitting}
-                onPress={handleLogin}
-                className="mb-6"
-              />
-            </Animated.View>
-
-            {/* Divider + Social */}
-            <Animated.View entering={FadeIn.delay(450).duration(400)}>
-              <Divider text="or" className="mb-6" />
-
-              {/* Social Login Buttons */}
-              <TouchableOpacity
-                className="flex-row items-center justify-center rounded-xl py-4 border mb-3"
-                style={{ borderColor: COLORS.neutral[200] }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="logo-google" size={20} color="#DB4437" style={{ marginRight: 10 }} />
-                <Text variant="body" weight="medium" color={COLORS.neutral[600]}>
-                  Continue with Google
+                <Text variant="body" color={COLORS.neutral[400]}>
+                  Log in to continue to EventsApp
                 </Text>
-              </TouchableOpacity>
+              </Animated.View>
 
-              <TouchableOpacity
-                className="flex-row items-center justify-center rounded-xl py-4 border mb-6"
-                style={{ borderColor: COLORS.neutral[200] }}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="logo-apple" size={20} color="#000000" style={{ marginRight: 10 }} />
-                <Text variant="body" weight="medium" color={COLORS.neutral[600]}>
-                  Continue with Apple
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
+              {/* Email Input */}
+              <Animated.View entering={FadeInDown.delay(100).duration(500)}>
+                <TextInput
+                  label="Email"
+                  leftIcon="mail-outline"
+                  placeholder="your@email.com"
+                  value={email}
+                  onChangeText={(text) => {
+                    setEmail(text);
+                    if (errors.email) setErrors((prev) => ({ ...prev, email: undefined }));
+                  }}
+                  error={errors.email}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  autoComplete="email"
+                />
+              </Animated.View>
 
-            {/* Sign Up Link */}
-            <Animated.View entering={FadeIn.delay(550).duration(400)} className="items-center pb-6">
-              <View className="flex-row justify-center mb-4">
+              {/* Password Input */}
+              <Animated.View entering={FadeInDown.delay(200).duration(500)}>
+                <TextInput
+                  label="Password"
+                  leftIcon="lock-closed-outline"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={(text) => {
+                    setPassword(text);
+                    if (errors.password) setErrors((prev) => ({ ...prev, password: undefined }));
+                  }}
+                  error={errors.password}
+                  secureTextEntry={!showPassword}
+                  autoComplete="password"
+                  rightIcon={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  onRightIconPress={() => setShowPassword(!showPassword)}
+                  containerClassName="mb-1"
+                />
+              </Animated.View>
+
+              {/* Forgot Password */}
+              <Animated.View entering={FadeIn.delay(300).duration(400)}>
+                <TouchableOpacity
+                  style={{ alignSelf: 'flex-end', marginBottom: 20 }}
+                  onPress={() => navigation.navigate('ForgotPassword')}
+                >
+                  <Text variant="label" weight="medium" color={COLORS.primary[500]}>
+                    Forgot Password?
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+
+              {/* Login Button */}
+              <Animated.View entering={FadeInDown.delay(350).duration(500)}>
+                <Button
+                  title="Log In"
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={isSubmitting}
+                  disabled={isSubmitting}
+                  onPress={handleLogin}
+                  className="mb-5"
+                />
+              </Animated.View>
+
+              {/* Divider + Social */}
+              <Animated.View entering={FadeIn.delay(450).duration(400)}>
+                <Divider text="or" className="mb-5" />
+
+                {/* Social Login Buttons */}
+                <TouchableOpacity
+                  className="flex-row items-center justify-center rounded-xl py-3.5 border"
+                  style={{ borderColor: COLORS.neutral[200], marginBottom: 10 }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="logo-google" size={20} color="#DB4437" style={{ marginRight: 10 }} />
+                  <Text variant="body" weight="medium" color={COLORS.neutral[600]}>
+                    Continue with Google
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="flex-row items-center justify-center rounded-xl py-3.5 border"
+                  style={{ borderColor: COLORS.neutral[200] }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="logo-apple" size={20} color="#000000" style={{ marginRight: 10 }} />
+                  <Text variant="body" weight="medium" color={COLORS.neutral[600]}>
+                    Continue with Apple
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            </View>
+
+            {/* Bottom: Footer Links */}
+            <Animated.View entering={FadeIn.delay(550).duration(400)} style={{ alignItems: 'center', paddingBottom: 16 }}>
+              <View className="flex-row justify-center" style={{ paddingBottom: 8 }}>
                 <Text variant="label" color={COLORS.neutral[400]}>
                   Don't have an account?{' '}
                 </Text>
@@ -222,7 +225,7 @@ export default function LoginScreen() {
               {/* Back to Home */}
               <TouchableOpacity
                 onPress={() => navigation.navigate('Welcome')}
-                className="flex-row items-center py-2 px-4"
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 16 }}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >

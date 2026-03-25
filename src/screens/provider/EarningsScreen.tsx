@@ -103,7 +103,7 @@ export default function EarningsScreen() {
   }, [fetchEarningsData]);
 
   const completedBookings = allBookings.filter(
-    (b) => b.status === 'completed'
+    (b) => b.status === 'completed' && b.paymentStatus === 'succeeded'
   );
 
   const filteredBookings = completedBookings.filter((b) =>
@@ -183,10 +183,10 @@ export default function EarningsScreen() {
   }
   const maxMonthlyAmount = Math.max(...monthlyEarnings.map((m) => m.amount), 1);
 
-  // Transaction history (filtered)
+  // Transaction history (filtered) — show bookings with any payment activity
   const transactionBookings = allBookings
     .filter((b) => isInPeriod(b.eventDate, period))
-    .filter((b) => b.status === 'completed' || b.status === 'confirmed')
+    .filter((b) => b.paymentStatus === 'succeeded' || b.paymentStatus === 'refunded' || b.status === 'completed' || b.status === 'confirmed')
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   if (loading) {
@@ -392,57 +392,56 @@ export default function EarningsScreen() {
               description="Completed bookings will appear here as transactions."
             />
           ) : (
-            transactionBookings.map((booking) => (
-              <Card key={booking._id} padding="sm" className="mb-2">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-row items-center flex-1">
-                    <View
-                      className={`mr-3 h-10 w-10 items-center justify-center rounded-full ${
-                        booking.status === 'completed'
-                          ? 'bg-secondary-50'
-                          : 'bg-warning-light'
-                      }`}
-                    >
-                      <Ionicons
-                        name={
-                          booking.status === 'completed'
-                            ? 'checkmark-circle'
-                            : 'time'
-                        }
-                        size={20}
-                        color={
-                          booking.status === 'completed'
-                            ? COLORS.success
-                            : COLORS.warning
-                        }
-                      />
+            transactionBookings.map((booking) => {
+              const payStatus = booking.paymentStatus || 'pending';
+              const iconName =
+                payStatus === 'succeeded' ? 'checkmark-circle' :
+                payStatus === 'refunded' ? 'arrow-undo-circle' :
+                payStatus === 'failed' ? 'close-circle' : 'time';
+              const iconColor =
+                payStatus === 'succeeded' ? COLORS.success :
+                payStatus === 'refunded' ? COLORS.info :
+                payStatus === 'failed' ? COLORS.error : COLORS.warning;
+              const iconBg =
+                payStatus === 'succeeded' ? 'bg-secondary-50' :
+                payStatus === 'refunded' ? 'bg-blue-50' :
+                payStatus === 'failed' ? 'bg-error-light' : 'bg-warning-light';
+              const statusLabel =
+                payStatus === 'succeeded' ? 'Paid' :
+                payStatus === 'refunded' ? 'Refunded' :
+                payStatus === 'failed' ? 'Failed' :
+                booking.status === 'completed' ? 'Completed' : 'Pending';
+
+              return (
+                <Card key={booking._id} padding="sm" className="mb-2">
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-row items-center flex-1">
+                      <View
+                        className={`mr-3 h-10 w-10 items-center justify-center rounded-full ${iconBg}`}
+                      >
+                        <Ionicons name={iconName} size={20} color={iconColor} />
+                      </View>
+                      <View className="flex-1">
+                        <Text variant="label" weight="medium" className="text-neutral-600">
+                          {booking.bookingNumber || `#${booking._id.slice(-6)}`}
+                        </Text>
+                        <Text variant="caption" color={COLORS.neutral[400]}>
+                          {formatDate(booking.createdAt)}
+                        </Text>
+                      </View>
                     </View>
-                    <View className="flex-1">
-                      <Text variant="label" weight="medium" className="text-neutral-600">
-                        {booking.bookingNumber || `#${booking._id.slice(-6)}`}
+                    <View className="items-end">
+                      <Text variant="label" weight="semibold" className="text-neutral-600">
+                        {payStatus === 'refunded' ? '-' : ''}{formatCurrency(booking.pricingSnapshot?.totalAmount || 0)}
                       </Text>
-                      <Text variant="caption" color={COLORS.neutral[400]}>
-                        {formatDate(booking.createdAt)}
+                      <Text variant="caption" weight="medium" color={iconColor}>
+                        {statusLabel}
                       </Text>
                     </View>
                   </View>
-                  <View className="items-end">
-                    <Text variant="label" weight="semibold" className="text-neutral-600">
-                      {formatCurrency(booking.pricingSnapshot?.totalAmount || 0)}
-                    </Text>
-                    <Text
-                      variant="caption"
-                      weight="medium"
-                      color={
-                        booking.status === 'completed' ? COLORS.success : COLORS.warning
-                      }
-                    >
-                      {booking.status === 'completed' ? 'Completed' : 'Pending'}
-                    </Text>
-                  </View>
-                </View>
-              </Card>
-            ))
+                </Card>
+              );
+            })
           )}
         </View>
       </ScrollView>

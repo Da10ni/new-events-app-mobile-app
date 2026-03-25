@@ -11,10 +11,11 @@ import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ProviderBookingsStackParamList } from '../../navigation/types';
 import { bookingApi } from '../../services/api/bookingApi';
+import { reviewApi } from '../../services/api/reviewApi';
 import { Text, Badge, Card, Avatar, Button, TextInput, Divider, Skeleton } from '../../components/ui';
 import { SectionHeader } from '../../components/layout';
 import { ConfirmationModal, LoadingOverlay, useSweetAlert } from '../../components/feedback';
-import type { Booking } from '../../types';
+import type { Booking, Review } from '../../types';
 import { COLORS } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<ProviderBookingsStackParamList, 'ProviderBookingDetailScreen'>;
@@ -94,6 +95,10 @@ export default function ProviderBookingDetailScreen({ route, navigation }: Props
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [reviewData, setReviewData] = useState<Review | null>(null);
+  const [showReplyInput, setShowReplyInput] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replyLoading, setReplyLoading] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{
     visible: boolean;
     title: string;
@@ -122,17 +127,50 @@ export default function ProviderBookingDetailScreen({ route, navigation }: Props
     fetchBooking();
   }, [bookingId]);
 
+  // Fetch review when booking is reviewed
+  useEffect(() => {
+    if (booking?.isReviewed && bookingId) {
+      reviewApi.getByBooking(bookingId)
+        .then((res) => setReviewData(res.data?.data?.review || null))
+        .catch(() => setReviewData(null));
+    } else {
+      setReviewData(null);
+    }
+  }, [booking?.isReviewed, bookingId]);
+
+  const handleReply = async () => {
+    if (!replyText.trim() || !reviewData) return;
+    try {
+      setReplyLoading(true);
+      const res = await reviewApi.addReply(reviewData._id, replyText.trim());
+      setReviewData(res.data?.data?.review || { ...reviewData, vendorReply: { comment: replyText.trim(), repliedAt: new Date().toISOString() } });
+      setShowReplyInput(false);
+      setReplyText('');
+      showAlert({ type: 'success', title: 'Success', message: 'Reply posted successfully' });
+    } catch {
+      showAlert({ type: 'error', title: 'Error', message: 'Failed to post reply' });
+    } finally {
+      setReplyLoading(false);
+    }
+  };
+
   const handleStatusUpdate = async (newStatus: string) => {
     if (!booking) return;
     try {
       setActionLoading(true);
+      const wasPaid = booking.paymentStatus === 'succeeded';
       await bookingApi.updateStatus(booking._id, {
         status: newStatus,
         vendorResponse: notes.trim() || undefined,
       });
-      setBooking((prev) => (prev ? { ...prev, status: newStatus } : prev));
+
+      const wasRefunded = (newStatus === 'rejected' || newStatus === 'cancelled') && wasPaid;
+      const updatedPaymentStatus = wasRefunded ? 'refunded' as const : booking.paymentStatus;
+      setBooking((prev) => (prev ? { ...prev, status: newStatus, paymentStatus: updatedPaymentStatus } : prev));
       setConfirmModal((prev) => ({ ...prev, visible: false }));
-      showAlert({ type: 'success', title: 'Success', message: `Booking ${newStatus} successfully` });
+
+      const refundMsg = wasRefunded ? ' Payment has been refunded to the client.' : '';
+      showAlert({ type: 'success', title: 'Success', message: `Booking ${newStatus} successfully.${refundMsg}` });
     } catch (err: any) {
       showAlert({ type: 'error', title: 'Error', message: err?.response?.data?.message || 'Failed to update booking' });
     } finally {
@@ -223,7 +261,9 @@ export default function ProviderBookingDetailScreen({ route, navigation }: Props
                 showConfirmation(
                   'reject',
                   'Reject Booking',
-                  'Are you sure you want to reject this booking? The client will be notified.',
+                  booking.paymentStatus === 'succeeded'
+                    ? 'Are you sure you want to reject this booking? The client\'s payment will be refunded and they will be notified.'
+                    : 'Are you sure you want to reject this booking? The client will be notified.',
                   true
                 )
               }
@@ -258,7 +298,9 @@ export default function ProviderBookingDetailScreen({ route, navigation }: Props
                 showConfirmation(
                   'reject',
                   'Reject Booking',
-                  'Are you sure you want to reject this booking?',
+                  booking.paymentStatus === 'succeeded'
+                    ? 'Are you sure you want to reject this booking? The client\'s payment will be refunded and they will be notified.'
+                    : 'Are you sure you want to reject this booking?',
                   true
                 )
               }
@@ -293,7 +335,9 @@ export default function ProviderBookingDetailScreen({ route, navigation }: Props
                 showConfirmation(
                   'cancel',
                   'Cancel Booking',
-                  'Are you sure you want to cancel this confirmed booking? The client will be notified.',
+                  booking.paymentStatus === 'succeeded'
+                    ? 'Are you sure you want to cancel this confirmed booking? The client\'s payment will be refunded and they will be notified.'
+                    : 'Are you sure you want to cancel this confirmed booking? The client will be notified.',
                   true
                 )
               }
@@ -529,6 +573,69 @@ export default function ProviderBookingDetailScreen({ route, navigation }: Props
           </Card>
         </View>
 
+        {/* Payment Status */}
+        <View className="px-4">
+          <SectionHeader title="Payment" />
+          <Card padding="md" className="mb-4">
+            <View className="flex-row items-center justify-between">
+              <View className="flex-row items-center">
+                <Ionicons
+                  name={
+                    booking.paymentStatus === 'succeeded'
+                      ? 'checkmark-circle'
+                      : booking.paymentStatus === 'refunded'
+                      ? 'arrow-undo-circle'
+                      : booking.paymentStatus === 'failed'
+                      ? 'close-circle'
+                      : booking.paymentStatus === 'processing'
+                      ? 'time'
+                      : 'card-outline'
+                  }
+                  size={22}
+                  color={
+                    booking.paymentStatus === 'succeeded'
+                      ? COLORS.success
+                      : booking.paymentStatus === 'refunded'
+                      ? COLORS.info
+                      : booking.paymentStatus === 'failed'
+                      ? COLORS.error
+                      : booking.paymentStatus === 'processing'
+                      ? COLORS.warning
+                      : COLORS.neutral[400]
+                  }
+                />
+                <Text variant="label" weight="medium" color={COLORS.neutral[600]} className="ml-2">
+                  Payment Status
+                </Text>
+              </View>
+              <Badge
+                text={
+                  booking.paymentStatus === 'succeeded'
+                    ? 'Paid'
+                    : booking.paymentStatus === 'refunded'
+                    ? 'Refunded'
+                    : booking.paymentStatus === 'failed'
+                    ? 'Failed'
+                    : booking.paymentStatus === 'processing'
+                    ? 'Processing'
+                    : 'Unpaid'
+                }
+                variant={
+                  booking.paymentStatus === 'succeeded'
+                    ? 'success'
+                    : booking.paymentStatus === 'refunded'
+                    ? 'info'
+                    : booking.paymentStatus === 'failed'
+                    ? 'error'
+                    : booking.paymentStatus === 'processing'
+                    ? 'warning'
+                    : 'default'
+                }
+              />
+            </View>
+          </Card>
+        </View>
+
         {/* Status Timeline */}
         <View className="px-4">
           <SectionHeader title="Status Timeline" />
@@ -601,6 +708,150 @@ export default function ProviderBookingDetailScreen({ route, navigation }: Props
               <Text variant="body" color={COLORS.error}>
                 {booking.cancellationReason}
               </Text>
+            </Card>
+          </View>
+        )}
+
+        {/* Client Review */}
+        {booking.isReviewed && reviewData && (
+          <View className="px-4">
+            <SectionHeader title="Client Review" />
+            <Card padding="md" className="mb-4">
+              {/* Client info & date */}
+              <View className="mb-3 flex-row items-center">
+                <Avatar
+                  firstName={booking.client?.firstName || ''}
+                  lastName={booking.client?.lastName || ''}
+                  source={booking.client?.avatar?.url}
+                  size="sm"
+                />
+                <View className="ml-2 flex-1">
+                  <Text variant="label" weight="semibold">
+                    {booking.client?.firstName} {booking.client?.lastName}
+                  </Text>
+                  <Text variant="caption" color={COLORS.neutral[400]}>
+                    {new Date(reviewData.createdAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Star Rating */}
+              <View className="mb-2 flex-row items-center">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons
+                    key={star}
+                    name={star <= reviewData.rating ? 'star' : 'star-outline'}
+                    size={18}
+                    color={star <= reviewData.rating ? '#F59E0B' : COLORS.neutral[300]}
+                    style={{ marginRight: 2 }}
+                  />
+                ))}
+                <Text variant="caption" weight="semibold" color={COLORS.neutral[500]} className="ml-1">
+                  {reviewData.rating}/5
+                </Text>
+              </View>
+
+              {/* Title */}
+              {reviewData.title && (
+                <Text variant="label" weight="semibold" className="mb-1">
+                  {reviewData.title}
+                </Text>
+              )}
+
+              {/* Comment */}
+              <Text variant="label" color={COLORS.neutral[500]} className="mb-2">
+                {reviewData.comment}
+              </Text>
+
+              {/* Detailed Ratings */}
+              {reviewData.detailedRatings && (
+                <View className="mb-2 flex-row flex-wrap" style={{ gap: 6 }}>
+                  {reviewData.detailedRatings.quality != null && (
+                    <Badge variant="info" text={`Quality: ${reviewData.detailedRatings.quality}/5`} />
+                  )}
+                  {reviewData.detailedRatings.communication != null && (
+                    <Badge variant="info" text={`Communication: ${reviewData.detailedRatings.communication}/5`} />
+                  )}
+                  {reviewData.detailedRatings.valueForMoney != null && (
+                    <Badge variant="info" text={`Value: ${reviewData.detailedRatings.valueForMoney}/5`} />
+                  )}
+                  {reviewData.detailedRatings.punctuality != null && (
+                    <Badge variant="info" text={`Punctuality: ${reviewData.detailedRatings.punctuality}/5`} />
+                  )}
+                </View>
+              )}
+
+              {/* Vendor Reply (already replied) */}
+              {reviewData.vendorReply ? (
+                <View
+                  className="mt-2 rounded-lg p-3"
+                  style={{ backgroundColor: COLORS.neutral[50] }}
+                >
+                  <View className="mb-1 flex-row items-center">
+                    <Ionicons name="chatbubble-outline" size={14} color={COLORS.primary[500]} />
+                    <Text variant="caption" weight="semibold" color={COLORS.primary[600]} className="ml-1">
+                      Your Reply
+                    </Text>
+                  </View>
+                  <Text variant="caption" color={COLORS.neutral[500]}>
+                    {reviewData.vendorReply.comment}
+                  </Text>
+                  <Text variant="caption" color={COLORS.neutral[300]} className="mt-1">
+                    {new Date(reviewData.vendorReply.repliedAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </View>
+              ) : (
+                <View className="mt-3">
+                  {showReplyInput ? (
+                    <View>
+                      <TextInput
+                        placeholder="Write your reply..."
+                        value={replyText}
+                        onChangeText={setReplyText}
+                        multiline
+                      />
+                      <View className="mt-2 flex-row justify-end" style={{ gap: 8 }}>
+                        <Button
+                          title="Cancel"
+                          variant="outline"
+                          size="sm"
+                          onPress={() => {
+                            setShowReplyInput(false);
+                            setReplyText('');
+                          }}
+                        />
+                        <Button
+                          title="Reply"
+                          variant="primary"
+                          size="sm"
+                          loading={replyLoading}
+                          disabled={!replyText.trim() || replyLoading}
+                          onPress={handleReply}
+                          leftIcon="send-outline"
+                        />
+                      </View>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={() => setShowReplyInput(true)}
+                      className="flex-row items-center"
+                    >
+                      <Ionicons name="chatbubble-outline" size={16} color={COLORS.primary[500]} />
+                      <Text variant="label" weight="medium" color={COLORS.primary[500]} className="ml-1">
+                        Reply to this review
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
             </Card>
           </View>
         )}

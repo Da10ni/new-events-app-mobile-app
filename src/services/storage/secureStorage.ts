@@ -1,33 +1,38 @@
 import * as SecureStore from 'expo-secure-store';
+import { Platform } from 'react-native';
 
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 
-// In-memory fallback when SecureStore native module isn't available
-const memoryStore = new Map<string, string>();
-
 async function getItem(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return typeof localStorage !== 'undefined' ? localStorage.getItem(key) : null;
+  }
   try {
     return await SecureStore.getItemAsync(key);
   } catch {
-    return memoryStore.get(key) ?? null;
+    return null;
   }
 }
 
 async function setItem(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+    return;
+  }
   try {
     await SecureStore.setItemAsync(key, value);
-  } catch {
-    memoryStore.set(key, value);
-  }
+  } catch {}
 }
 
 async function deleteItem(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    if (typeof localStorage !== 'undefined') localStorage.removeItem(key);
+    return;
+  }
   try {
     await SecureStore.deleteItemAsync(key);
-  } catch {
-    memoryStore.delete(key);
-  }
+  } catch {}
 }
 
 export const getToken = async (): Promise<string | null> => {

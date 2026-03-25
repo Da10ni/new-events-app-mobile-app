@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   ScrollView,
@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ProviderDashboardStackParamList } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
@@ -183,7 +183,10 @@ export default function DashboardScreen() {
       const completedBookings = allBookings.filter(
         (b) => b.status === 'completed'
       );
-      const totalEarnings = completedBookings.reduce(
+      const paidBookings = completedBookings.filter(
+        (b) => b.paymentStatus === 'succeeded'
+      );
+      const totalEarnings = paidBookings.reduce(
         (sum, b) => sum + (b.pricingSnapshot?.totalAmount || 0),
         0
       );
@@ -205,9 +208,11 @@ export default function DashboardScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchDashboardData();
+    }, [fetchDashboardData])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -483,10 +488,17 @@ export default function DashboardScreen() {
                     <Text variant="caption" color={COLORS.neutral[400]} className="mt-0.5">
                       {booking.listing?.title}
                     </Text>
-                    <Text variant="caption" color={COLORS.neutral[400]}>
-                      {formatDate(booking.eventDate)} - PKR{' '}
-                      {booking.pricingSnapshot?.totalAmount?.toLocaleString()}
-                    </Text>
+                    <View className="flex-row items-center mt-0.5">
+                      <Text variant="caption" color={COLORS.neutral[400]}>
+                        {formatDate(booking.eventDate)} - PKR{' '}
+                        {booking.pricingSnapshot?.totalAmount?.toLocaleString()}
+                      </Text>
+                      {booking.paymentStatus === 'refunded' ? (
+                        <Badge text="Refunded" variant="warning" className="ml-2" />
+                      ) : booking.paymentStatus === 'succeeded' ? (
+                        <Badge text="Paid" variant="success" className="ml-2" />
+                      ) : null}
+                    </View>
                   </View>
                 </View>
               </Card>
@@ -557,11 +569,18 @@ export default function DashboardScreen() {
                     <Text variant="label" weight="semibold" color={COLORS.neutral[600]}>
                       PKR {booking.pricingSnapshot?.totalAmount?.toLocaleString()}
                     </Text>
-                    <Badge
-                      text={booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                      variant={getStatusBadgeVariant(booking.status)}
-                      className="mt-1"
-                    />
+                    <View className="flex-row items-center mt-1 gap-1">
+                      {booking.paymentStatus === 'succeeded' && (
+                        <Badge text="Paid" variant="success" />
+                      )}
+                      {booking.paymentStatus === 'refunded' && (
+                        <Badge text="Refunded" variant="warning" />
+                      )}
+                      <Badge
+                        text={booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                        variant={getStatusBadgeVariant(booking.status)}
+                      />
+                    </View>
                   </View>
                 </View>
               </Card>

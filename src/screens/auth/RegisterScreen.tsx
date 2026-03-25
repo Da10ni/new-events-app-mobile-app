@@ -178,10 +178,10 @@ export default function RegisterScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="flex-1 px-6 pt-20">
+          <View className="flex-1 px-6" style={{ paddingTop: 56 }}>
             {/* Header */}
-            <Animated.View entering={FadeInDown.duration(400)} className="mb-6">
-              <Text variant="h3" weight="bold" className="mb-2" color={COLORS.primary[600]}>
+            <Animated.View entering={FadeInDown.duration(400)} style={{ marginBottom: 28 }}>
+              <Text variant="h3" weight="bold" style={{ marginBottom: 4 }} color={COLORS.primary[600]}>
                 Create your account
               </Text>
               <Text variant="body" color={COLORS.neutral[400]}>
@@ -190,15 +190,15 @@ export default function RegisterScreen() {
             </Animated.View>
 
             {/* Section: Personal Information */}
-            <Animated.View entering={FadeInDown.delay(80).duration(400)} className="mb-3">
+            <Animated.View entering={FadeInDown.delay(80).duration(400)} style={{ marginBottom: 12 }}>
               <Text variant="caption" weight="semibold" color={COLORS.neutral[300]} style={{ letterSpacing: 1.2, textTransform: 'uppercase' }}>
                 Personal Information
               </Text>
             </Animated.View>
 
             {/* Name Row */}
-            <Animated.View entering={FadeInDown.delay(100).duration(400)} className="flex-row">
-              <View className="flex-1 mr-2">
+            <Animated.View entering={FadeInDown.delay(100).duration(400)} style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={{ flex: 1 }}>
                 <TextInput
                   label="First Name"
                   leftIcon="person-outline"
@@ -210,7 +210,7 @@ export default function RegisterScreen() {
                   error={errors.firstName}
                 />
               </View>
-              <View className="flex-1 ml-2">
+              <View style={{ flex: 1 }}>
                 <TextInput
                   label="Last Name"
                   leftIcon="person-outline"
@@ -225,7 +225,7 @@ export default function RegisterScreen() {
             </Animated.View>
 
             {/* Section: Contact Details */}
-            <Animated.View entering={FadeInDown.delay(130).duration(400)} className="mb-3 mt-2">
+            <Animated.View entering={FadeInDown.delay(130).duration(400)} style={{ marginBottom: 12, marginTop: 8 }}>
               <Text variant="caption" weight="semibold" color={COLORS.neutral[300]} style={{ letterSpacing: 1.2, textTransform: 'uppercase' }}>
                 Contact Details
               </Text>
@@ -261,7 +261,7 @@ export default function RegisterScreen() {
             </Animated.View>
 
             {/* Section: Create Password */}
-            <Animated.View entering={FadeInDown.delay(230).duration(400)} className="mb-3 mt-2">
+            <Animated.View entering={FadeInDown.delay(230).duration(400)} style={{ marginBottom: 12, marginTop: 8 }}>
               <Text variant="caption" weight="semibold" color={COLORS.neutral[300]} style={{ letterSpacing: 1.2, textTransform: 'uppercase' }}>
                 Create Password
               </Text>
@@ -284,7 +284,7 @@ export default function RegisterScreen() {
 
               {/* Password Strength Indicator */}
               {form.password.length > 0 && (
-                <View className="mb-4">
+                <View style={{ marginBottom: 12 }}>
                   <View className="flex-row mb-1">
                     {[1, 2, 3, 4].map((level) => (
                       <View
@@ -299,7 +299,7 @@ export default function RegisterScreen() {
                       />
                     ))}
                   </View>
-                  <Text variant="caption" className="text-right" color={passwordStrength.color}>
+                  <Text variant="caption" style={{ textAlign: 'right' }} color={passwordStrength.color}>
                     {passwordStrength.label}
                   </Text>
                 </View>
@@ -319,16 +319,18 @@ export default function RegisterScreen() {
             </Animated.View>
 
             {/* Terms + Button + Login Link */}
-            <Animated.View entering={FadeInDown.delay(300).duration(400)}>
+            <Animated.View entering={FadeInDown.delay(300).duration(400)} style={{ marginTop: 4 }}>
               {/* Terms Checkbox */}
               <TouchableOpacity
-                className="flex-row items-start mb-6"
+                style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 }}
                 onPress={() => setAgreedToTerms(!agreedToTerms)}
                 activeOpacity={0.7}
               >
                 <View
-                  className="w-5 h-5 rounded border items-center justify-center mt-0.5 mr-3"
+                  className="w-5 h-5 rounded border items-center justify-center"
                   style={{
+                    marginTop: 2,
+                    marginRight: 12,
                     borderColor: agreedToTerms ? COLORS.primary[500] : COLORS.neutral[300],
                     backgroundColor: agreedToTerms ? COLORS.primary[500] : 'transparent',
                   }}
@@ -337,7 +339,7 @@ export default function RegisterScreen() {
                     <Ionicons name="checkmark" size={14} color={COLORS.neutral[0]} />
                   )}
                 </View>
-                <Text variant="label" className="flex-1" color={COLORS.neutral[400]} style={{ lineHeight: 20 }}>
+                <Text variant="label" style={{ flex: 1, lineHeight: 20 }} color={COLORS.neutral[400]}>
                   By signing up, you agree to our{' '}
                   <Text variant="label" color={COLORS.primary[500]}>Terms of Service</Text>
                   {' '}and{' '}
@@ -354,11 +356,11 @@ export default function RegisterScreen() {
                 loading={isSubmitting}
                 disabled={isSubmitting || !agreedToTerms}
                 onPress={handleRegister}
-                className="mb-6"
+                className="mb-5"
               />
 
               {/* Login Link */}
-              <View className="flex-row justify-center pb-3">
+              <View style={{ flexDirection: 'row', justifyContent: 'center', paddingBottom: 8 }}>
                 <Text variant="label" color={COLORS.neutral[400]}>
                   Already have an account?{' '}
                 </Text>
@@ -372,7 +374,7 @@ export default function RegisterScreen() {
               {/* Back to Home */}
               <TouchableOpacity
                 onPress={() => navigation.navigate('Welcome')}
-                className="flex-row items-center justify-center py-2 px-4 mb-4"
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 8, paddingHorizontal: 16, marginBottom: 16 }}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >

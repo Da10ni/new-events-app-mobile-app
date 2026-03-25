@@ -75,7 +75,7 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 {message}
               </Text>
 
-              <View className="flex-row gap-3">
+              <View className="flex-row items-stretch gap-3">
                 <View className="flex-1">
                   <Button
                     title={cancelText}
@@ -84,16 +84,18 @@ const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                     fullWidth
                     onPress={onCancel}
                     disabled={loading}
+                    style={{ height: 48, paddingHorizontal: 12 }}
                   />
                 </View>
                 <View className="flex-1">
                   <Button
                     title={confirmText}
-                    variant={destructive ? 'primary' : 'primary'}
+                    variant="primary"
                     size="md"
                     fullWidth
                     onPress={onConfirm}
                     loading={loading}
+                    style={{ height: 48, paddingHorizontal: 12 }}
                     className={destructive ? 'bg-error border-error' : ''}
                   />
                 </View>

@@ -30,6 +30,7 @@ export type ExploreStackParamList = {
   ListingDetailScreen: { listingId: string };
   BookingRequestScreen: { listingId: string; vendorId: string };
   BookingConfirmationScreen: { bookingId: string };
+  PaymentScreen: { bookingId: string };
   EditProfileScreen: undefined;
   SettingsScreen: undefined;
   NotificationsScreen: undefined;
@@ -43,6 +44,7 @@ export type WishlistStackParamList = {
 export type BookingsStackParamList = {
   BookingsScreen: undefined;
   BookingDetailScreen: { bookingId: string };
+  PaymentScreen: { bookingId: string };
   ReviewScreen: { bookingId: string; listingId: string; vendorId: string };
 };
 

@@ -894,13 +894,22 @@ export default function ExploreScreen() {
                       borderRadius: 10,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      opacity: vendor?.status === 'approved' ? 1 : 0.5,
+                      opacity: 1,
                     }}
                     activeOpacity={0.7}
                     onPress={() => {
                       if (vendor?.status === 'approved') {
                         closeSidebar();
                         dispatch(switchRole());
+                      } else if (vendor?.status === 'pending') {
+                        closeSidebar();
+                        showAlert({ type: 'info', title: 'Pending Approval', message: 'Your provider application is under review. We\'ll notify you once it\'s approved.' });
+                      } else if (vendor?.status === 'rejected') {
+                        closeSidebar();
+                        showAlert({ type: 'error', title: 'Application Rejected', message: 'Your provider application was rejected. Please contact support for more details.' });
+                      } else {
+                        closeSidebar();
+                        setProviderModalVisible(true);
                       }
                     }}
                   >

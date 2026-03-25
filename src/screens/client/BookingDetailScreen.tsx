@@ -1,21 +1,25 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   ScrollView,
   TouchableOpacity,
   Image,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import type { BookingsStackParamList } from '../../navigation/types';
 import { useAppDispatch } from '../../store/hooks';
 import { showToast } from '../../store/slices/uiSlice';
 import { updateBooking } from '../../store/slices/bookingSlice';
 import { bookingApi } from '../../services/api/bookingApi';
+import { reviewApi } from '../../services/api/reviewApi';
 import { Text, Avatar, Badge, Card, Divider, Button } from '../../components/ui';
 import { ConfirmationModal, useSweetAlert } from '../../components/feedback';
-import type { Booking } from '../../types';
+import type { Booking, Review } from '../../types';
 import { COLORS } from '../../theme/colors';
 
 type Props = NativeStackScreenProps<BookingsStackParamList, 'BookingDetailScreen'>;
@@ -46,12 +50,16 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showDeleteReviewModal, setShowDeleteReviewModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [deletingReview, setDeletingReview] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviewData, setReviewData] = useState<Review | null>(null);
 
   const fetchBooking = useCallback(async () => {
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       setError(null);
       const res = await bookingApi.getById(bookingId);
       setBooking(res.data.data.booking);
@@ -59,10 +67,18 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
       setError('Failed to load booking details');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [bookingId]);
 
-  useEffect(() => {
+  useFocusEffect(
+    useCallback(() => {
+      fetchBooking();
+    }, [fetchBooking])
+  );
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
     fetchBooking();
   }, [fetchBooking]);
 
@@ -71,10 +87,18 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
     try {
       setCancelling(true);
       await bookingApi.cancel(booking._id, 'Cancelled by client');
-      const updated = { ...booking, status: 'cancelled' };
+      const wasPaid = booking.paymentStatus === 'succeeded';
+      const updated = {
+        ...booking,
+        status: 'cancelled',
+        paymentStatus: wasPaid ? 'refunded' as const : booking.paymentStatus,
+      };
       setBooking(updated);
       dispatch(updateBooking(updated));
-      dispatch(showToast({ message: 'Booking cancelled', type: 'info' }));
+      dispatch(showToast({
+        message: wasPaid ? 'Booking cancelled & payment refunded' : 'Booking cancelled',
+        type: 'info',
+      }));
       setShowCancelModal(false);
     } catch {
       showAlert({ type: 'error', title: 'Error', message: 'Failed to cancel booking. Please try again.' });
@@ -91,6 +115,34 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
       vendorId: booking.vendor._id,
     });
   }, [booking, navigation]);
+
+  // Fetch review when booking is reviewed
+  useEffect(() => {
+    if (booking?.isReviewed && bookingId) {
+      reviewApi.getByBooking(bookingId)
+        .then((res) => setReviewData(res.data?.data?.review || null))
+        .catch(() => setReviewData(null));
+    } else {
+      setReviewData(null);
+    }
+  }, [booking?.isReviewed, bookingId]);
+
+  const handleDeleteReview = useCallback(async () => {
+    if (!reviewData || !booking) return;
+    try {
+      setDeletingReview(true);
+      await reviewApi.delete(reviewData._id);
+      setReviewData(null);
+      setShowDeleteReviewModal(false);
+      setBooking({ ...booking, isReviewed: false });
+      dispatch(updateBooking({ ...booking, isReviewed: false }));
+      dispatch(showToast({ message: 'Review deleted', type: 'info' }));
+    } catch {
+      showAlert({ type: 'error', title: 'Error', message: 'Failed to delete review.' });
+    } finally {
+      setDeletingReview(false);
+    }
+  }, [reviewData, booking, dispatch]);
 
   if (loading) {
     return (
@@ -124,12 +176,21 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
   const primaryImage = booking.listing.images?.[0];
   const canCancel = ['inquiry', 'pending', 'confirmed'].includes(booking.status);
   const canReview = booking.status === 'completed' && !booking.isReviewed;
+  const canPay = ['inquiry', 'pending', 'confirmed'].includes(booking.status) && booking.paymentStatus !== 'succeeded';
 
   return (
     <View className="flex-1 bg-white">
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 100 }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[COLORS.primary[500]]}
+            tintColor={COLORS.primary[500]}
+          />
+        }
       >
         <View className="px-4 pt-4">
           {/* Listing Info Card */}
@@ -356,6 +417,77 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
             </View>
           </Card>
 
+          {/* Payment Status */}
+          {booking.paymentStatus && booking.paymentStatus !== 'pending' && (
+            <Card padding="md" className="mb-5">
+              <Text variant="body" weight="bold" className="mb-3">
+                Payment Status
+              </Text>
+              <View className="flex-row items-center">
+                <View
+                  style={{
+                    height: 40,
+                    width: 40,
+                    borderRadius: 12,
+                    backgroundColor:
+                      booking.paymentStatus === 'succeeded'
+                        ? COLORS.successLight
+                        : booking.paymentStatus === 'refunded'
+                        ? '#FFF3E0'
+                        : booking.paymentStatus === 'failed'
+                        ? COLORS.errorLight
+                        : COLORS.neutral[50],
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 12,
+                  }}
+                >
+                  <Ionicons
+                    name={
+                      booking.paymentStatus === 'succeeded'
+                        ? 'checkmark-circle'
+                        : booking.paymentStatus === 'refunded'
+                        ? 'refresh-circle'
+                        : booking.paymentStatus === 'failed'
+                        ? 'close-circle'
+                        : 'time'
+                    }
+                    size={22}
+                    color={
+                      booking.paymentStatus === 'succeeded'
+                        ? COLORS.success
+                        : booking.paymentStatus === 'refunded'
+                        ? '#F57C00'
+                        : booking.paymentStatus === 'failed'
+                        ? COLORS.error
+                        : COLORS.neutral[400]
+                    }
+                  />
+                </View>
+                <View className="flex-1">
+                  <Text variant="label" weight="semibold">
+                    {booking.paymentStatus === 'succeeded'
+                      ? 'Payment Successful'
+                      : booking.paymentStatus === 'refunded'
+                      ? 'Payment Refunded'
+                      : booking.paymentStatus === 'failed'
+                      ? 'Payment Failed'
+                      : 'Processing Payment'}
+                  </Text>
+                  <Text variant="caption" color={COLORS.neutral[400]}>
+                    {booking.paymentStatus === 'succeeded'
+                      ? `${booking.pricingSnapshot.currency || 'PKR'} ${booking.pricingSnapshot.totalAmount.toLocaleString()} paid`
+                      : booking.paymentStatus === 'refunded'
+                      ? `${booking.pricingSnapshot.currency || 'PKR'} ${booking.pricingSnapshot.totalAmount.toLocaleString()} refunded to your account`
+                      : booking.paymentStatus === 'failed'
+                      ? 'Your payment could not be processed'
+                      : 'Your payment is being processed'}
+                  </Text>
+                </View>
+              </View>
+            </Card>
+          )}
+
           {/* Vendor Info */}
           <Card padding="md" className="mb-5">
             <Text variant="body" weight="bold" className="mb-3">
@@ -393,6 +525,98 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
             </Card>
           )}
 
+          {/* Your Review */}
+          {booking.isReviewed && reviewData && (
+            <Card padding="md" className="mb-5">
+              <View className="mb-3 flex-row items-center justify-between">
+                <Text variant="body" weight="bold">
+                  Your Review
+                </Text>
+                <TouchableOpacity
+                  onPress={() => setShowDeleteReviewModal(true)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="trash-outline" size={18} color={COLORS.error} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Star Rating */}
+              <View className="mb-2 flex-row items-center">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons
+                    key={star}
+                    name={star <= reviewData.rating ? 'star' : 'star-outline'}
+                    size={18}
+                    color={star <= reviewData.rating ? '#F59E0B' : COLORS.neutral[300]}
+                    style={{ marginRight: 2 }}
+                  />
+                ))}
+                <Text variant="caption" color={COLORS.neutral[400]} className="ml-2">
+                  {new Date(reviewData.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}
+                </Text>
+              </View>
+
+              {/* Title */}
+              {reviewData.title && (
+                <Text variant="label" weight="semibold" className="mb-1">
+                  {reviewData.title}
+                </Text>
+              )}
+
+              {/* Comment */}
+              <Text variant="label" color={COLORS.neutral[500]} className="mb-2">
+                {reviewData.comment}
+              </Text>
+
+              {/* Detailed Ratings */}
+              {reviewData.detailedRatings && (
+                <View className="mb-2 flex-row flex-wrap" style={{ gap: 6 }}>
+                  {reviewData.detailedRatings.quality != null && (
+                    <Badge variant="info" text={`Quality: ${reviewData.detailedRatings.quality}/5`} />
+                  )}
+                  {reviewData.detailedRatings.communication != null && (
+                    <Badge variant="info" text={`Communication: ${reviewData.detailedRatings.communication}/5`} />
+                  )}
+                  {reviewData.detailedRatings.valueForMoney != null && (
+                    <Badge variant="info" text={`Value: ${reviewData.detailedRatings.valueForMoney}/5`} />
+                  )}
+                  {reviewData.detailedRatings.punctuality != null && (
+                    <Badge variant="info" text={`Punctuality: ${reviewData.detailedRatings.punctuality}/5`} />
+                  )}
+                </View>
+              )}
+
+              {/* Vendor Reply */}
+              {reviewData.vendorReply && (
+                <View
+                  className="mt-2 rounded-lg p-3"
+                  style={{ backgroundColor: COLORS.neutral[50] }}
+                >
+                  <View className="mb-1 flex-row items-center">
+                    <Ionicons name="business-outline" size={14} color={COLORS.neutral[500]} />
+                    <Text variant="caption" weight="semibold" color={COLORS.neutral[600]} className="ml-1">
+                      Vendor Reply
+                    </Text>
+                  </View>
+                  <Text variant="caption" color={COLORS.neutral[500]}>
+                    {reviewData.vendorReply.comment}
+                  </Text>
+                  <Text variant="caption" color={COLORS.neutral[300]} className="mt-1">
+                    {new Date(reviewData.vendorReply.repliedAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </Text>
+                </View>
+              )}
+            </Card>
+          )}
+
           {/* Cancellation Reason */}
           {booking.cancellationReason && (
             <Card padding="md" className="mb-5">
@@ -408,7 +632,7 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
       </ScrollView>
 
       {/* Action Buttons */}
-      {(canCancel || canReview) && (
+      {(canCancel || canReview || canPay) && (
         <View
           className="border-t border-neutral-100 bg-white px-4 pb-8 pt-4"
           style={{
@@ -419,6 +643,43 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
             elevation: 8,
           }}
         >
+          {canPay && (
+            <View className="mb-3">
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() =>
+                  navigation.navigate('PaymentScreen', { bookingId: booking._id })
+                }
+                style={{
+                  backgroundColor: COLORS.primary[500],
+                  borderRadius: 14,
+                  paddingVertical: 15,
+                  paddingHorizontal: 20,
+                  alignItems: 'center',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="lock-closed" size={15} color="rgba(255,255,255,0.85)" />
+                  <Text variant="body" weight="bold" color="#fff" style={{ marginLeft: 8, fontSize: 17, letterSpacing: 0.3 }}>
+                    Pay {booking.pricingSnapshot.currency || 'PKR'} {booking.pricingSnapshot.totalAmount.toLocaleString()}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5 }}>
+                  <Text variant="caption" color="rgba(255,255,255,0.55)" style={{ fontSize: 10 }}>
+                    Secured by{' '}
+                  </Text>
+                  <Svg width={33} height={14} viewBox="0 0 60 25" fill="none">
+                    <Path d="M5 10.2c0-.7.6-1 1.5-1 1.4 0 3.1.4 4.5 1.2V6.3C9.5 5.7 8 5.3 6.5 5.3 2.7 5.3 0 7.4 0 10.5c0 4.8 6.6 4 6.6 6.1 0 .8-.7 1.1-1.7 1.1-1.5 0-3.4-.6-4.9-1.5v4.2c1.7.7 3.3 1 4.9 1 3.9 0 6.6-1.9 6.6-5.1C11.5 11.8 5 12.8 5 10.2z" fill="rgba(255,255,255,0.6)" />
+                    <Path d="M16.2 2l-4.8 1v3.5l4.8-1V2zM11.4 6.8h4.8v13.5h-4.8V6.8z" fill="rgba(255,255,255,0.6)" />
+                    <Path d="M22 6.4l-.3 1.8h-2.1v5.5c0 2.3 1.5 3.2 3.6 3.2 1.1 0 1.9-.2 2.5-.5v-3.5c-.5.2-3.1.9-3.1-1.4V11.6h3.1V8.2h-3.1V6.4H22z" fill="rgba(255,255,255,0.6)" />
+                    <Path d="M31.6 11c0-.8.6-1.1 1.3-1.1.9 0 2 .3 2.9.9V7.2c-1-.4-2-.6-2.9-.6-2.9 0-5.1 1.6-5.1 4.4 0 4.3 5.4 3.6 5.4 5.5 0 .9-.8 1.2-1.6 1.2-1.4 0-3.1-.6-4.3-1.4v3.6c1.5.6 2.9.9 4.3.9 3 0 5.2-1.5 5.2-4.4C36.8 12.2 31.6 13 31.6 11z" fill="rgba(255,255,255,0.6)" />
+                    <Path d="M43.4 5.3c-1.7 0-2.8.8-3.4 1.3l-.2-1h-4.3v17.9l4.8-1v-4.3c.6.5 1.6 1.1 3.1 1.1 3.1 0 6-2.5 6-8C49.4 7.5 46.5 5.3 43.4 5.3zm-1 11.9c-1 0-1.6-.4-2-.8v-6.4c.4-.5 1.1-.9 2-.9 1.6 0 2.6 1.7 2.6 4.1 0 2.3-1 4-2.6 4z" fill="rgba(255,255,255,0.6)" />
+                    <Path d="M55.9 5.3c-3.2 0-5.5 2.8-5.5 7.9 0 5.5 2.6 7.5 6.1 7.5 1.7 0 3-.4 4-1v-3.5c-.9.5-2 .8-3.3.8-1.3 0-2.4-.5-2.6-2h6.6c0-.2 0-.9 0-1.2C61.2 8.3 59.6 5.3 55.9 5.3zm-1.3 6.3c0-1.5.9-2.1 1.7-2.1.8 0 1.6.6 1.6 2.1h-3.3z" fill="rgba(255,255,255,0.6)" />
+                  </Svg>
+                </View>
+              </TouchableOpacity>
+            </View>
+          )}
           {canReview && (
             <Button
               title="Leave a Review"
@@ -446,7 +707,11 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
       <ConfirmationModal
         visible={showCancelModal}
         title="Cancel Booking"
-        message="Are you sure you want to cancel this booking? This action cannot be undone."
+        message={
+          booking?.paymentStatus === 'succeeded'
+            ? 'Are you sure you want to cancel this booking? Your payment will be refunded. This action cannot be undone.'
+            : 'Are you sure you want to cancel this booking? This action cannot be undone.'
+        }
         confirmText="Cancel Booking"
         cancelText="Keep Booking"
         destructive
@@ -454,6 +719,20 @@ export default function BookingDetailScreen({ route, navigation }: Props) {
         onConfirm={handleCancel}
         onCancel={() => setShowCancelModal(false)}
         loading={cancelling}
+      />
+
+      {/* Delete Review Confirmation Modal */}
+      <ConfirmationModal
+        visible={showDeleteReviewModal}
+        title="Delete Review"
+        message="Are you sure you want to delete your review? This action cannot be undone."
+        confirmText="Delete Review"
+        cancelText="Keep Review"
+        destructive
+        icon="trash"
+        onConfirm={handleDeleteReview}
+        onCancel={() => setShowDeleteReviewModal(false)}
+        loading={deletingReview}
       />
     </View>
   );

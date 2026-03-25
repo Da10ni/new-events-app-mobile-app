@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Platform, View } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import type { ProviderTabParamList } from './types';
 import { COLORS } from '../theme/colors';
 import { LAYOUT } from '../config/constants';
+import { messageApi } from '../services/api/messageApi';
 
 import ProviderDashboardStack from './stacks/ProviderDashboardStack';
 import ProviderListingsStack from './stacks/ProviderListingsStack';
@@ -23,10 +25,26 @@ const TAB_ICON_MAP: Record<keyof ProviderTabParamList, { focused: string; unfocu
 };
 
 export default function ProviderNavigator() {
+  const [unreadCount, setUnreadCount] = useState(0);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const res = await messageApi.getUnreadCount();
+        setUnreadCount(res.data?.data?.count || 0);
+      } catch {}
+    };
+    fetchUnread();
+    pollingRef.current = setInterval(fetchUnread, 5000);
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, []);
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
+        tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: COLORS.primary[500],
         tabBarInactiveTintColor: COLORS.neutral[300],
         tabBarLabelStyle: {
@@ -53,9 +71,27 @@ export default function ProviderNavigator() {
         tabBarIcon: ({ focused, color }) => {
           const iconConfig = TAB_ICON_MAP[route.name];
           const iconName = focused ? iconConfig.focused : iconConfig.unfocused;
+          const showDot = route.name === 'ProviderInboxTab' && unreadCount > 0 && !focused;
           return (
             <View style={{ alignItems: 'center', minHeight: 28, justifyContent: 'center' }}>
-              <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={22} color={color} />
+              <View>
+                <Ionicons name={iconName as keyof typeof Ionicons.glyphMap} size={22} color={color} />
+                {showDot && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -2,
+                      right: -4,
+                      width: 8,
+                      height: 8,
+                      borderRadius: 4,
+                      backgroundColor: COLORS.primary[400],
+                      borderWidth: 1.5,
+                      borderColor: '#FFFFFF',
+                    }}
+                  />
+                )}
+              </View>
               {focused && (
                 <View
                   style={{
@@ -90,7 +126,24 @@ export default function ProviderNavigator() {
       <Tab.Screen
         name="ProviderInboxTab"
         component={ProviderInboxStack}
-        options={{ tabBarLabel: 'Inbox' }}
+        options={({ route }) => ({
+          tabBarLabel: 'Inbox',
+          tabBarStyle: getFocusedRouteNameFromRoute(route) === 'ProviderChatScreen'
+            ? { display: 'none' as const }
+            : {
+                backgroundColor: COLORS.background.primary,
+                borderTopWidth: 1,
+                borderTopColor: COLORS.neutral[100],
+                paddingTop: 8,
+                paddingBottom: LAYOUT.TAB_BAR_PADDING_BOTTOM,
+                height: LAYOUT.TAB_BAR_HEIGHT,
+                elevation: 12,
+                shadowColor: COLORS.neutral[700],
+                shadowOffset: { width: 0, height: -4 },
+                shadowOpacity: 0.12,
+                shadowRadius: 16,
+              },
+        })}
       />
       <Tab.Screen
         name="ProviderProfileTab"

@@ -23,115 +23,133 @@ export default function WelcomeScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
-      <View className="flex-1 px-6">
-        {/* Logo & Brand */}
-        <Animated.View entering={ZoomIn.duration(500)} className="items-center mt-12 mb-8">
-          <View
-            className="w-24 h-24 rounded-3xl items-center justify-center mb-4"
+      <View className="flex-1 px-6" style={{ justifyContent: 'space-between' }}>
+        {/* Top Content */}
+        <View>
+          {/* Logo & Brand */}
+          <View style={{ alignItems: 'center', marginTop: 48, marginBottom: 20 }}>
+            <Animated.View entering={ZoomIn.duration(500)} style={{ alignItems: 'center' }}>
+              <View
+                style={{
+                  width: 96,
+                  height: 96,
+                  borderRadius: 24,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                  backgroundColor: COLORS.primary[500],
+                  shadowColor: COLORS.primary[500],
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 6,
+                }}
+              >
+                <Ionicons name="calendar" size={44} color={COLORS.neutral[0]} />
+              </View>
+            </Animated.View>
+            <Text variant="h2" weight="bold" color={COLORS.neutral[600]} style={{ textAlign: 'center' }}>
+              EventsApp
+            </Text>
+          </View>
+
+          {/* Hero Illustration Area */}
+          <Animated.View
+            entering={FadeIn.delay(200).duration(600)}
+            className="rounded-3xl"
             style={{
-              backgroundColor: COLORS.primary[500],
-              shadowColor: COLORS.primary[500],
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-              elevation: 6,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: COLORS.primary[50],
+              maxHeight: 240,
+              flex: 1,
+              marginBottom: 20,
             }}
           >
-            <Ionicons name="calendar" size={44} color={COLORS.neutral[0]} />
-          </View>
-          <Text variant="h2" weight="bold" color={COLORS.neutral[600]}>
-            EventsApp
-          </Text>
-        </Animated.View>
-
-        {/* Hero Illustration Area */}
-        <Animated.View
-          entering={FadeIn.delay(200).duration(600)}
-          className="flex-1 rounded-3xl items-center justify-center mb-8"
-          style={{ backgroundColor: COLORS.primary[50], maxHeight: 280 }}
-        >
-          <View className="items-center">
-            <View className="flex-row mb-4">
-              <View
-                className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
-                style={{ backgroundColor: COLORS.primary[100] }}
-              >
-                <Ionicons name="musical-notes" size={28} color={COLORS.primary[500]} />
+            <View style={{ alignItems: 'center' }}>
+              <View className="flex-row mb-4">
+                <View
+                  className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
+                  style={{ backgroundColor: COLORS.primary[100] }}
+                >
+                  <Ionicons name="musical-notes" size={28} color={COLORS.primary[500]} />
+                </View>
+                <View
+                  className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
+                  style={{ backgroundColor: COLORS.secondary[100] }}
+                >
+                  <Ionicons name="camera" size={28} color={COLORS.secondary[500]} />
+                </View>
+                <View
+                  className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
+                  style={{ backgroundColor: COLORS.primary[100] }}
+                >
+                  <Ionicons name="restaurant" size={28} color={COLORS.primary[500]} />
+                </View>
               </View>
-              <View
-                className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
-                style={{ backgroundColor: COLORS.secondary[100] }}
-              >
-                <Ionicons name="camera" size={28} color={COLORS.secondary[500]} />
-              </View>
-              <View
-                className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
-                style={{ backgroundColor: COLORS.primary[100] }}
-              >
-                <Ionicons name="restaurant" size={28} color={COLORS.primary[500]} />
-              </View>
-            </View>
-            <View className="flex-row">
-              <View
-                className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
-                style={{ backgroundColor: COLORS.secondary[100] }}
-              >
-                <Ionicons name="flower" size={28} color={COLORS.secondary[500]} />
-              </View>
-              <View
-                className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
-                style={{ backgroundColor: COLORS.primary[100] }}
-              >
-                <Ionicons name="sparkles" size={28} color={COLORS.primary[500]} />
+              <View className="flex-row">
+                <View
+                  className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
+                  style={{ backgroundColor: COLORS.secondary[100] }}
+                >
+                  <Ionicons name="flower" size={28} color={COLORS.secondary[500]} />
+                </View>
+                <View
+                  className="w-16 h-16 rounded-2xl items-center justify-center mx-2"
+                  style={{ backgroundColor: COLORS.primary[100] }}
+                >
+                  <Ionicons name="sparkles" size={28} color={COLORS.primary[500]} />
+                </View>
               </View>
             </View>
-          </View>
-        </Animated.View>
+          </Animated.View>
 
-        {/* Headline & Description */}
-        <Animated.View entering={FadeInDown.delay(400).duration(500)} className="items-center mb-8">
-          <Text variant="h3" weight="bold" className="text-center mb-3" color={COLORS.primary[600]}>
-            Welcome to EventsApp
-          </Text>
-          <Text variant="body" className="text-center px-4" color={COLORS.neutral[400]}>
-            Discover and book the best event services for your special occasions.
-            From photographers to caterers, find everything you need.
-          </Text>
-        </Animated.View>
-
-        {/* CTA Buttons */}
-        <Animated.View entering={FadeInDown.delay(600).duration(500)} className="mb-4">
-          <Button
-            title="Continue with Email"
-            variant="primary"
-            size="lg"
-            fullWidth
-            leftIcon="mail-outline"
-            onPress={() => navigation.navigate('Login')}
-            className="mb-3"
-          />
-          <Button
-            title="Create an Account"
-            variant="outline"
-            size="lg"
-            fullWidth
-            onPress={() => navigation.navigate('Register')}
-          />
-        </Animated.View>
-
-        {/* Terms */}
-        <Animated.View entering={FadeIn.delay(800).duration(400)} className="items-center pb-4">
-          <Text variant="caption" className="text-center" color={COLORS.neutral[300]}>
-            By continuing, you agree to our{' '}
-            <Text variant="caption" color={COLORS.neutral[400]} style={{ textDecorationLine: 'underline' }}>
-              Terms of Service
+          {/* Headline & Description */}
+          <Animated.View entering={FadeInDown.delay(400).duration(500)} style={{ alignItems: 'center', marginBottom: 20 }}>
+            <Text variant="h3" weight="bold" style={{ textAlign: 'center', marginBottom: 8 }} color={COLORS.primary[600]}>
+              Welcome to EventsApp
             </Text>
-            {' '}and{' '}
-            <Text variant="caption" color={COLORS.neutral[400]} style={{ textDecorationLine: 'underline' }}>
-              Privacy Policy
+            <Text variant="body" style={{ textAlign: 'center', paddingHorizontal: 16 }} color={COLORS.neutral[400]}>
+              Discover and book the best event services for your special occasions.
+              From photographers to caterers, find everything you need.
             </Text>
-          </Text>
-        </Animated.View>
+          </Animated.View>
+        </View>
+
+        {/* Bottom: CTA Buttons + Terms */}
+        <View style={{ paddingBottom: 16 }}>
+          <Animated.View entering={FadeInDown.delay(600).duration(500)} style={{ marginBottom: 12 }}>
+            <Button
+              title="Continue with Email"
+              variant="primary"
+              size="lg"
+              fullWidth
+              leftIcon="mail-outline"
+              onPress={() => navigation.navigate('Login')}
+              className="mb-3"
+            />
+            <Button
+              title="Create an Account"
+              variant="outline"
+              size="lg"
+              fullWidth
+              onPress={() => navigation.navigate('Register')}
+            />
+          </Animated.View>
+
+          <Animated.View entering={FadeIn.delay(800).duration(400)} style={{ alignItems: 'center' }}>
+            <Text variant="caption" style={{ textAlign: 'center' }} color={COLORS.neutral[300]}>
+              By continuing, you agree to our{' '}
+              <Text variant="caption" color={COLORS.neutral[400]} style={{ textDecorationLine: 'underline' }}>
+                Terms of Service
+              </Text>
+              {' '}and{' '}
+              <Text variant="caption" color={COLORS.neutral[400]} style={{ textDecorationLine: 'underline' }}>
+                Privacy Policy
+              </Text>
+            </Text>
+          </Animated.View>
+        </View>
       </View>
       </ScrollView>
     </SafeAreaView>

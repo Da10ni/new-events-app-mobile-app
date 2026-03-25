@@ -1,32 +1,43 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   FlatList,
   RefreshControl,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { ProviderInboxStackParamList } from '../../navigation/types';
 import { useAppSelector } from '../../store/hooks';
-import { Text, Avatar, Badge, Skeleton, Divider } from '../../components/ui';
+import { messageApi } from '../../services/api/messageApi';
+import { Text, Avatar, Divider } from '../../components/ui';
 import { EmptyState } from '../../components/layout';
 import { LAYOUT } from '../../config/constants';
 import { COLORS } from '../../theme/colors';
 
 type InboxNav = NativeStackNavigationProp<ProviderInboxStackParamList>;
 
+interface Participant {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  avatar?: { url: string };
+}
+
 interface Conversation {
   _id: string;
-  recipientId: string;
-  recipientName: string;
-  recipientAvatar?: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  unreadCount: number;
-  isOnline: boolean;
+  participants: Participant[];
+  listing?: { _id: string; title: string };
+  lastMessage?: {
+    text: string;
+    sender: string;
+    createdAt: string;
+  };
+  unreadCounts: Record<string, number>;
+  createdAt: string;
 }
 
 const formatMessageTime = (dateString: string): string => {
@@ -38,57 +49,57 @@ const formatMessageTime = (dateString: string): string => {
   const diffDays = Math.floor(diffMs / 86400000);
 
   if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return date.toLocaleDateString('en-PK', { month: 'short', day: 'numeric' });
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  if (diffDays < 7) return `${diffDays}d`;
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
 export default function ProviderInboxScreen() {
   const navigation = useNavigation<InboxNav>();
-  const { vendor } = useAppSelector((state) => state.auth);
+  const { user } = useAppSelector((state) => state.auth);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [error, setError] = useState<string | null>(null);
 
   const fetchConversations = useCallback(async () => {
     try {
-      setError(null);
-      // In a real app, this would call a messaging API
-      // For now, we simulate with empty data or mock data
-      // The API would be something like: messagingApi.getConversations()
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setConversations([]);
-    } catch (err: any) {
-      setError(err?.response?.data?.message || 'Failed to load conversations');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      const res = await messageApi.getConversations({ limit: 50 });
+      setConversations(res.data.data.conversations || []);
+    } catch {
+      // silently fail
     }
   }, []);
 
-  useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
+  useFocusEffect(
+    useCallback(() => {
+      const init = async () => {
+        setLoading(true);
+        await fetchConversations();
+        setLoading(false);
+      };
+      init();
+    }, [fetchConversations])
+  );
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      fetchConversations();
-    });
-    return unsubscribe;
-  }, [navigation, fetchConversations]);
-
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchConversations();
+    await fetchConversations();
+    setRefreshing(false);
   }, [fetchConversations]);
+
+  const getOther = useCallback(
+    (convo: Conversation): Participant => {
+      return convo.participants.find((p) => p._id !== user?._id) || convo.participants[0];
+    },
+    [user?._id]
+  );
 
   const renderConversation = ({ item }: { item: Conversation }) => {
-    const nameParts = item.recipientName.split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    const other = getOther(item);
+    const name = other.fullName || `${other.firstName} ${other.lastName}`;
+    const unread = item.unreadCounts?.[user?._id || ''] || 0;
 
     return (
       <TouchableOpacity
@@ -96,54 +107,58 @@ export default function ProviderInboxScreen() {
         onPress={() =>
           navigation.navigate('ProviderChatScreen', {
             conversationId: item._id,
-            recipientName: item.recipientName,
+            recipientName: name,
           })
         }
         activeOpacity={0.7}
       >
-        <View className="relative">
-          <Avatar
-            source={item.recipientAvatar}
-            firstName={firstName}
-            lastName={lastName}
-            size="lg"
-            online={item.isOnline}
-          />
-        </View>
+        <Avatar
+          source={other.avatar?.url}
+          firstName={other.firstName}
+          lastName={other.lastName}
+          size="lg"
+        />
 
         <View className="ml-3 flex-1">
           <View className="flex-row items-center justify-between">
             <Text
               variant="label"
-              weight={item.unreadCount > 0 ? 'bold' : 'semibold'}
-              className="flex-1 text-neutral-600"
+              weight={unread > 0 ? 'bold' : 'semibold'}
+              className="flex-1"
               numberOfLines={1}
+              color={COLORS.neutral[600]}
             >
-              {item.recipientName}
+              {name}
             </Text>
-            <Text
-              variant="caption"
-              color={item.unreadCount > 0 ? COLORS.primary[500] : COLORS.neutral[300]}
-              weight={item.unreadCount > 0 ? 'semibold' : 'regular'}
-            >
-              {formatMessageTime(item.lastMessageTime)}
-            </Text>
+            {item.lastMessage?.createdAt && (
+              <Text
+                variant="caption"
+                color={unread > 0 ? COLORS.primary[500] : COLORS.neutral[300]}
+                weight={unread > 0 ? 'semibold' : 'regular'}
+              >
+                {formatMessageTime(item.lastMessage.createdAt)}
+              </Text>
+            )}
           </View>
 
           <View className="flex-row items-center justify-between mt-1">
             <Text
               variant="caption"
-              color={item.unreadCount > 0 ? COLORS.neutral[500] : COLORS.neutral[300]}
-              weight={item.unreadCount > 0 ? 'medium' : 'regular'}
+              color={unread > 0 ? COLORS.neutral[500] : COLORS.neutral[400]}
+              weight={unread > 0 ? 'medium' : 'regular'}
               className="flex-1 mr-3"
               numberOfLines={1}
             >
-              {item.lastMessage}
+              {item.listing ? `${item.listing.title} · ` : ''}
+              {item.lastMessage?.text || 'No messages yet'}
             </Text>
-            {item.unreadCount > 0 && (
-              <View className="h-5 min-w-[20px] items-center justify-center rounded-full bg-primary-500 px-1.5">
-                <Text variant="caption" weight="bold" color={COLORS.neutral[0]}>
-                  {item.unreadCount > 99 ? '99+' : item.unreadCount}
+            {unread > 0 && (
+              <View
+                className="h-5 min-w-[20px] items-center justify-center rounded-full px-1.5"
+                style={{ backgroundColor: COLORS.primary[500] }}
+              >
+                <Text variant="caption" weight="bold" color="#FFFFFF" style={{ fontSize: 10 }}>
+                  {unread > 99 ? '99+' : unread}
                 </Text>
               </View>
             )}
@@ -155,30 +170,14 @@ export default function ProviderInboxScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-white" edges={['left', 'right']}>
-        <View className="px-4 pt-4">
-          {[1, 2, 3, 4].map((i) => (
-            <View key={i} className="flex-row items-center mb-4">
-              <Skeleton variant="circle" width={56} height={56} />
-              <View className="ml-3 flex-1">
-                <Skeleton variant="text" width="60%" height={16} className="mb-2" />
-                <Skeleton variant="text" width="80%" height={14} />
-              </View>
-            </View>
-          ))}
-        </View>
+      <SafeAreaView className="flex-1 items-center justify-center bg-white" edges={['left', 'right']}>
+        <ActivityIndicator size="large" color={COLORS.primary[500]} />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView className="flex-1 bg-white" edges={['left', 'right']}>
-      {error && (
-        <View className="mx-4 mt-2 rounded-xl bg-error-light px-4 py-3">
-          <Text variant="label" color={COLORS.error}>{error}</Text>
-        </View>
-      )}
-
       <FlatList
         data={conversations}
         renderItem={renderConversation}

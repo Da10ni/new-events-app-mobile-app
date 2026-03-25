@@ -8,12 +8,14 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { CommonActions } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { ExploreStackParamList } from '../../navigation/types';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { showToast } from '../../store/slices/uiSlice';
 import { listingApi } from '../../services/api/listingApi';
 import { favoriteApi } from '../../services/api/favoriteApi';
+import { messageApi } from '../../services/api/messageApi';
 import { Text, Avatar, Badge, Card, Divider, StarRating } from '../../components/ui';
 import { ListingImageSlider, PriceTag, RatingDisplay, WishlistHeart } from '../../components/listing';
 import { SectionHeader } from '../../components/layout';
@@ -65,6 +67,10 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reviewSort, setReviewSort] = useState<'highest' | 'lowest' | 'newest'>('highest');
+  const [reviewFilter, setReviewFilter] = useState<number | null>(null);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [chatLoading, setChatLoading] = useState(false);
 
   const fetchListing = useCallback(async () => {
     try {
@@ -80,7 +86,7 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
 
       // Fetch reviews separately
       try {
-        const reviewsRes = await listingApi.getReviews(listingData._id, { limit: 5 });
+        const reviewsRes = await listingApi.getReviews(listingData._id, { limit: 50 });
         setReviews(reviewsRes.data.data?.reviews || []);
       } catch {
         // Reviews are non-critical
@@ -111,6 +117,34 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
       vendorId: listing.vendor._id,
     });
   }, [listing, navigation]);
+
+  const handleChat = useCallback(async () => {
+    if (!listing || chatLoading) return;
+    setChatLoading(true);
+    try {
+      const res = await messageApi.createConversation({
+        vendorId: listing.vendor._id,
+        listingId: listing._id,
+      });
+      const conversation = res.data.data.conversation;
+      navigation.dispatch(
+        CommonActions.navigate({
+          name: 'InboxTab',
+          params: {
+            screen: 'ChatScreen',
+            params: {
+              conversationId: conversation._id,
+              recipientName: listing.vendor.businessName,
+            },
+          },
+        })
+      );
+    } catch {
+      dispatch(showToast({ type: 'error', message: 'Failed to start chat' }));
+    } finally {
+      setChatLoading(false);
+    }
+  }, [listing, chatLoading, navigation, dispatch]);
 
   const handleFavoriteToggle = useCallback(
     (fav: boolean) => {
@@ -166,12 +200,30 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
             showDots
           />
           {/* Wishlist Heart */}
-          <View className="absolute right-4 top-12">
+          <View
+            style={{
+              position: 'absolute',
+              right: 16,
+              top: 72,
+              zIndex: 10,
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.9)',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 1 },
+              shadowOpacity: 0.15,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+          >
             <WishlistHeart
               listingId={listing._id}
               isFavorite={isFavorite}
               onToggle={handleFavoriteToggle}
-              size={28}
+              size={22}
             />
           </View>
         </View>
@@ -329,6 +381,16 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
             </View>
           </Card>
 
+          {/* Location */}
+          <Divider className="my-5" />
+          <SectionHeader title="Location" />
+          <View className="flex-row items-start">
+            <Ionicons name="location" size={20} color={COLORS.primary[500]} />
+            <Text variant="body" color={COLORS.neutral[500]} className="ml-2 flex-1">
+              {formatAddress()}
+            </Text>
+          </View>
+
           {/* Reviews */}
           <Divider className="my-5" />
           <SectionHeader
@@ -342,51 +404,167 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
 
           {reviews.length > 0 ? (
             <>
-              {reviews.slice(0, 3).map((review) => (
-                <Card key={review._id} padding="md" className="mb-3">
-                  <View className="flex-row items-center">
-                    <Avatar
-                      source={review.client.avatar?.url}
-                      firstName={review.client.firstName}
-                      lastName={review.client.lastName}
-                      size="sm"
-                    />
-                    <View className="ml-3 flex-1">
-                      <Text variant="label" weight="semibold">
-                        {review.client.firstName} {review.client.lastName}
-                      </Text>
-                      <Text variant="caption" color={COLORS.neutral[400]}>
-                        {new Date(review.createdAt).toLocaleDateString('en-US', {
-                          month: 'short',
-                          day: 'numeric',
-                          year: 'numeric',
-                        })}
-                      </Text>
-                    </View>
-                    <StarRating rating={review.rating} size={14} />
-                  </View>
-                  <Text variant="body" color={COLORS.neutral[500]} className="mt-3">
-                    {review.comment}
-                  </Text>
-                  {review.vendorReply && (
-                    <View className="ml-4 mt-3 rounded-lg border-l-2 border-primary-500 bg-primary-50 p-3">
-                      <Text variant="caption" weight="semibold" className="mb-1">
-                        Response from host
-                      </Text>
-                      <Text variant="caption" color={COLORS.neutral[500]}>
-                        {review.vendorReply.comment}
-                      </Text>
-                    </View>
-                  )}
-                </Card>
-              ))}
-              {listing.totalReviews > 3 && (
-                <TouchableOpacity className="items-center rounded-xl border border-neutral-600 px-6 py-3">
-                  <Text variant="label" weight="semibold">
-                    See All {listing.totalReviews} Reviews
+              {/* Rating Filter Chips */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                className="mb-3"
+                contentContainerStyle={{ gap: 8 }}
+              >
+                <TouchableOpacity
+                  onPress={() => setReviewFilter(null)}
+                  style={{
+                    paddingHorizontal: 14,
+                    paddingVertical: 7,
+                    borderRadius: 20,
+                    backgroundColor: reviewFilter === null ? COLORS.primary[500] : COLORS.neutral[50],
+                    borderWidth: 1,
+                    borderColor: reviewFilter === null ? COLORS.primary[500] : COLORS.neutral[200],
+                  }}
+                >
+                  <Text
+                    variant="caption"
+                    weight="semibold"
+                    color={reviewFilter === null ? '#fff' : COLORS.neutral[500]}
+                  >
+                    All ({reviews.length})
                   </Text>
                 </TouchableOpacity>
-              )}
+                {[5, 4, 3, 2, 1].map((star) => {
+                  const count = reviews.filter((r) => Math.round(r.rating) === star).length;
+                  if (count === 0) return null;
+                  return (
+                    <TouchableOpacity
+                      key={star}
+                      onPress={() => setReviewFilter(reviewFilter === star ? null : star)}
+                      style={{
+                        paddingHorizontal: 14,
+                        paddingVertical: 7,
+                        borderRadius: 20,
+                        backgroundColor: reviewFilter === star ? COLORS.primary[500] : COLORS.neutral[50],
+                        borderWidth: 1,
+                        borderColor: reviewFilter === star ? COLORS.primary[500] : COLORS.neutral[200],
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <Ionicons
+                        name="star"
+                        size={12}
+                        color={reviewFilter === star ? '#fff' : '#F59E0B'}
+                      />
+                      <Text
+                        variant="caption"
+                        weight="semibold"
+                        color={reviewFilter === star ? '#fff' : COLORS.neutral[500]}
+                      >
+                        {star} ({count})
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Sort Options */}
+              <View className="mb-3 flex-row items-center" style={{ gap: 8 }}>
+                {(['highest', 'lowest', 'newest'] as const).map((option) => (
+                  <TouchableOpacity
+                    key={option}
+                    onPress={() => setReviewSort(option)}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 8,
+                      backgroundColor: reviewSort === option ? COLORS.neutral[600] : COLORS.neutral[50],
+                    }}
+                  >
+                    <Text
+                      variant="caption"
+                      weight="medium"
+                      color={reviewSort === option ? '#fff' : COLORS.neutral[500]}
+                    >
+                      {option === 'highest' ? 'Highest' : option === 'lowest' ? 'Lowest' : 'Newest'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Review List */}
+              {(() => {
+                const filtered = reviewFilter
+                  ? reviews.filter((r) => Math.round(r.rating) === reviewFilter)
+                  : reviews;
+                const sorted = [...filtered].sort((a, b) => {
+                  if (reviewSort === 'highest') return b.rating - a.rating;
+                  if (reviewSort === 'lowest') return a.rating - b.rating;
+                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
+                const displayed = showAllReviews ? sorted : sorted.slice(0, 3);
+
+                if (sorted.length === 0) {
+                  return (
+                    <View className="items-center py-4">
+                      <Text variant="body" color={COLORS.neutral[400]}>
+                        No {reviewFilter}-star reviews
+                      </Text>
+                    </View>
+                  );
+                }
+
+                return (
+                  <>
+                    {displayed.map((review) => (
+                      <Card key={review._id} padding="md" className="mb-3">
+                        <View className="flex-row items-center">
+                          <Avatar
+                            source={review.client.avatar?.url}
+                            firstName={review.client.firstName}
+                            lastName={review.client.lastName}
+                            size="sm"
+                          />
+                          <View className="ml-3 flex-1">
+                            <Text variant="label" weight="semibold">
+                              {review.client.firstName} {review.client.lastName}
+                            </Text>
+                            <Text variant="caption" color={COLORS.neutral[400]}>
+                              {new Date(review.createdAt).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              })}
+                            </Text>
+                          </View>
+                          <StarRating rating={review.rating} size={14} />
+                        </View>
+                        <Text variant="body" color={COLORS.neutral[500]} className="mt-3">
+                          {review.comment}
+                        </Text>
+                        {review.vendorReply && (
+                          <View className="ml-4 mt-3 rounded-lg border-l-2 border-primary-500 bg-primary-50 p-3">
+                            <Text variant="caption" weight="semibold" className="mb-1">
+                              Response from host
+                            </Text>
+                            <Text variant="caption" color={COLORS.neutral[500]}>
+                              {review.vendorReply.comment}
+                            </Text>
+                          </View>
+                        )}
+                      </Card>
+                    ))}
+                    {sorted.length > 3 && (
+                      <TouchableOpacity
+                        onPress={() => setShowAllReviews(!showAllReviews)}
+                        className="items-center rounded-xl border border-neutral-600 px-6 py-3"
+                      >
+                        <Text variant="label" weight="semibold">
+                          {showAllReviews ? 'Show Less' : `See All ${sorted.length} Reviews`}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                );
+              })()}
             </>
           ) : (
             <View className="items-center py-6">
@@ -396,16 +574,6 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
               </Text>
             </View>
           )}
-
-          {/* Location */}
-          <Divider className="my-5" />
-          <SectionHeader title="Location" />
-          <View className="flex-row items-start">
-            <Ionicons name="location" size={20} color={COLORS.primary[500]} />
-            <Text variant="body" color={COLORS.neutral[500]} className="ml-2 flex-1">
-              {formatAddress()}
-            </Text>
-          </View>
         </View>
       </ScrollView>
 
@@ -443,27 +611,41 @@ export default function ListingDetailScreen({ route, navigation }: Props) {
                 suffix={`/ ${listing.pricing.priceUnit || 'event'}`}
               />
             </View>
-            {hasActiveBooking ? (
-              <View
-                className="flex-row items-center rounded-xl px-6 py-3.5"
-                style={{ backgroundColor: COLORS.neutral[100] }}
-              >
-                <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
-                <Text variant="body" weight="bold" color={COLORS.neutral[500]} style={{ marginLeft: 6 }}>
-                  {statusLabel}
-                </Text>
-              </View>
-            ) : (
+            <View className="flex-row items-center" style={{ gap: 10 }}>
               <TouchableOpacity
-                onPress={handleBookNow}
-                className="rounded-xl bg-primary-500 px-6 py-3.5"
+                onPress={handleChat}
+                disabled={chatLoading}
+                className="items-center justify-center rounded-xl border border-neutral-200 p-3"
                 activeOpacity={0.85}
               >
-                <Text variant="body" weight="bold" color={COLORS.neutral[0]}>
-                  Book Now
-                </Text>
+                {chatLoading ? (
+                  <ActivityIndicator size={20} color={COLORS.primary[500]} />
+                ) : (
+                  <Ionicons name="chatbubble-ellipses-outline" size={20} color={COLORS.primary[500]} />
+                )}
               </TouchableOpacity>
-            )}
+              {hasActiveBooking ? (
+                <View
+                  className="flex-row items-center rounded-xl px-6 py-3.5"
+                  style={{ backgroundColor: COLORS.neutral[100] }}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color={COLORS.success} />
+                  <Text variant="body" weight="bold" color={COLORS.neutral[500]} style={{ marginLeft: 6 }}>
+                    {statusLabel}
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleBookNow}
+                  className="rounded-xl bg-primary-500 px-6 py-3.5"
+                  activeOpacity={0.85}
+                >
+                  <Text variant="body" weight="bold" color={COLORS.neutral[0]}>
+                    Book Now
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         );
       })()}

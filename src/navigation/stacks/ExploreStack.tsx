@@ -9,6 +9,7 @@ import ExploreScreen from '../../screens/client/ExploreScreen';
 import ListingDetailScreen from '../../screens/client/ListingDetailScreen';
 import BookingRequestScreen from '../../screens/client/BookingRequestScreen';
 import BookingConfirmationScreen from '../../screens/client/BookingConfirmationScreen';
+import PaymentScreen from '../../screens/client/PaymentScreen';
 import EditProfileScreen from '../../screens/client/EditProfileScreen';
 import SettingsScreen from '../../screens/client/SettingsScreen';
 import NotificationsScreen from '../../screens/client/NotificationsScreen';
@@ -92,6 +93,11 @@ export default function ExploreStack() {
           headerLeft: () => null,
           gestureEnabled: false,
         }}
+      />
+      <Stack.Screen
+        name="PaymentScreen"
+        component={PaymentScreen}
+        options={{ headerTitle: 'Payment' }}
       />
       <Stack.Screen
         name="EditProfileScreen"

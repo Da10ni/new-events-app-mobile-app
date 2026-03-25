@@ -63,6 +63,10 @@ export default function ProviderInboxStack() {
             fontSize: 16,
             color: COLORS.neutral[600],
           },
+          headerStyle: {
+            backgroundColor: COLORS.background.primary,
+          },
+          statusBarTranslucent: false,
         })}
       />
     </Stack.Navigator>

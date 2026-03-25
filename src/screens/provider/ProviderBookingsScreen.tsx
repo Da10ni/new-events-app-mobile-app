@@ -226,6 +226,20 @@ export default function ProviderBookingsScreen() {
             <Text variant="label" weight="bold" color={COLORS.neutral[600]} className="ml-1.5">
               PKR {item.pricingSnapshot?.totalAmount?.toLocaleString()}
             </Text>
+            {item.paymentStatus === 'succeeded' && (
+              <View className="ml-2 rounded-full bg-secondary-50 px-2 py-0.5">
+                <Text variant="caption" weight="semibold" color={COLORS.success}>
+                  Paid
+                </Text>
+              </View>
+            )}
+            {item.paymentStatus === 'refunded' && (
+              <View className="ml-2 rounded-full bg-blue-50 px-2 py-0.5">
+                <Text variant="caption" weight="semibold" color={COLORS.info}>
+                  Refunded
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 

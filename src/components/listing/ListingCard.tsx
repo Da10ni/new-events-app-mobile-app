@@ -48,7 +48,7 @@ const ListingCard: React.FC<ListingCardProps> = ({
 }) => {
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const cardWidth = width ?? Dimensions.get('window').width - 32;
-  const imageHeight = variant === 'featured' ? cardWidth * 0.72 : cardWidth * 0.7;
+  const imageHeight = variant === 'featured' ? cardWidth * 0.55 : cardWidth * 0.52;
 
   const primaryImage = listing.images.find((img) => img.isPrimary) || listing.images[0];
   const images = listing.images.length > 0 ? listing.images : [];
@@ -119,7 +119,7 @@ const ListingCard: React.FC<ListingCardProps> = ({
         />
 
         {/* Wishlist heart */}
-        <View className="absolute right-3 top-3">
+        <View className="absolute right-3.5 top-3.5">
           <WishlistHeart
             listingId={listing._id}
             isFavorite={isFavorite}

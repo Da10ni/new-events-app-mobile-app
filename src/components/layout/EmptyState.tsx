@@ -53,12 +53,14 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       )}
 
       {actionTitle && onAction && (
-        <Button
-          title={actionTitle}
-          variant="primary"
-          size="md"
-          onPress={onAction}
-        />
+        <View className="items-center">
+          <Button
+            title={actionTitle}
+            variant="primary"
+            size="md"
+            onPress={onAction}
+          />
+        </View>
       )}
     </View>
   );

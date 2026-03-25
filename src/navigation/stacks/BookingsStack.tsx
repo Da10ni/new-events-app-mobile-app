@@ -7,6 +7,7 @@ import { COLORS } from '../../theme/colors';
 
 import BookingsScreen from '../../screens/client/BookingsScreen';
 import BookingDetailScreen from '../../screens/client/BookingDetailScreen';
+import PaymentScreen from '../../screens/client/PaymentScreen';
 import ReviewScreen from '../../screens/client/ReviewScreen';
 
 const Stack = createNativeStackNavigator<BookingsStackParamList>();
@@ -58,6 +59,11 @@ export default function BookingsStack() {
         name="BookingDetailScreen"
         component={BookingDetailScreen}
         options={{ headerTitle: 'Booking details' }}
+      />
+      <Stack.Screen
+        name="PaymentScreen"
+        component={PaymentScreen}
+        options={{ headerTitle: 'Payment' }}
       />
       <Stack.Screen
         name="ReviewScreen"

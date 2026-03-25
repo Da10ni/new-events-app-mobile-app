@@ -34,6 +34,7 @@ export default function BookingRequestScreen({ route, navigation }: Props) {
 
   const [guestCount, setGuestCount] = useState(1);
   const [selectedPackageIndex, setSelectedPackageIndex] = useState<number | null>(null);
+  const [guestInput, setGuestInput] = useState('');
   const [specialRequests, setSpecialRequests] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(
     new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
@@ -48,6 +49,7 @@ export default function BookingRequestScreen({ route, navigation }: Props) {
         setListing(data);
         if (data.capacity?.min) {
           setGuestCount(data.capacity.min);
+          setGuestInput(String(data.capacity.min));
         }
       } catch {
         dispatch(showToast({ message: 'Failed to load listing', type: 'error' }));
@@ -64,13 +66,17 @@ export default function BookingRequestScreen({ route, navigation }: Props) {
 
   const incrementGuests = useCallback(() => {
     if (listing && guestCount < capacityMax) {
-      setGuestCount((prev) => prev + 1);
+      const next = guestCount + 1;
+      setGuestCount(next);
+      setGuestInput(String(next));
     }
   }, [listing, guestCount, capacityMax]);
 
   const decrementGuests = useCallback(() => {
     if (listing && guestCount > capacityMin) {
-      setGuestCount((prev) => prev - 1);
+      const next = guestCount - 1;
+      setGuestCount(next);
+      setGuestInput(String(next));
     }
   }, [listing, guestCount, capacityMin]);
 
@@ -286,9 +292,31 @@ export default function BookingRequestScreen({ route, navigation }: Props) {
               >
                 <Ionicons name="remove" size={20} color={COLORS.neutral[600]} />
               </TouchableOpacity>
-              <Text variant="body" weight="bold" className="mx-5">
-                {guestCount}
-              </Text>
+              <RNTextInput
+                value={guestInput}
+                onChangeText={(text) => {
+                  const cleaned = text.replace(/[^0-9]/g, '');
+                  setGuestInput(cleaned);
+                }}
+                onBlur={() => {
+                  const num = parseInt(guestInput, 10);
+                  if (isNaN(num) || num < capacityMin) {
+                    setGuestCount(capacityMin);
+                    setGuestInput(String(capacityMin));
+                  } else if (num > capacityMax) {
+                    setGuestCount(capacityMax);
+                    setGuestInput(String(capacityMax));
+                  } else {
+                    setGuestCount(num);
+                    setGuestInput(String(num));
+                  }
+                }}
+                keyboardType="number-pad"
+                maxLength={String(capacityMax).length}
+                className="text-center text-[16px] font-bold text-neutral-600"
+                style={{ width: 50, marginHorizontal: 12, padding: 0 }}
+                selectTextOnFocus
+              />
               <TouchableOpacity
                 onPress={incrementGuests}
                 disabled={guestCount >= capacityMax}
